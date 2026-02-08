@@ -1,0 +1,55 @@
+{
+  "name": "catch2",
+  "description": "A modern, C++-native, test framework for unit-tests",
+  "homepage": "https://github.com/catchorg/Catch2",
+  "license": "BSL-1.0",
+  "repository": {
+    "type": "github",
+    "url": "https://github.com/catchorg/Catch2"
+  },
+  "versions": {
+    "3.5.2": {
+      "git_tag": "v3.5.2",
+      "minimum_cmake_version": "3.14",
+      "tested": true,
+      "cmake_options": {
+        "CATCH_BUILD_TESTING": "OFF",
+        "CATCH_INSTALL_DOCS": "OFF"
+      }
+    },
+    "3.5.0": {
+      "git_tag": "v3.5.0",
+      "minimum_cmake_version": "3.14",
+      "tested": true,
+      "cmake_options": {
+        "CATCH_BUILD_TESTING": "OFF",
+        "CATCH_INSTALL_DOCS": "OFF"
+      }
+    },
+    "3.4.0": {
+      "git_tag": "v3.4.0",
+      "minimum_cmake_version": "3.14",
+      "tested": true,
+      "cmake_options": {
+        "CATCH_BUILD_TESTING": "OFF"
+      }
+    },
+    "2.13.10": {
+      "git_tag": "v2.13.10",
+      "minimum_cmake_version": "3.5",
+      "tested": true,
+      "cmake_options": {
+        "CATCH_BUILD_TESTING": "OFF",
+        "CATCH_INSTALL_DOCS": "OFF"
+      },
+      "notes": "Catch2 v2 - single header version"
+    }
+  },
+  "default_version": "3.5.2",
+  "targets": [
+    "Catch2::Catch2",
+    "Catch2::Catch2WithMain"
+  ],
+  "dependencies": [],
+  "maintainers": ["registry-team"]
+}

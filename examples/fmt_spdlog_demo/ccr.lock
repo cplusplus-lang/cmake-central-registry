@@ -1,0 +1,5 @@
+# CCR Lockfile - Generated 
+# Do not edit manually
+
+fmt=10.1.0
+spdlog=1.12.0

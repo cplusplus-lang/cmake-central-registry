@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate Package Definitions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Validate all packages
+        run: python scripts/validate.py --all
+
+  test-packages:
+    name: Test Packages (${{ matrix.os }})
+    needs: validate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        cmake-version: ['3.19', '3.27']
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: ${{ matrix.cmake-version }}
+      
+      - name: Cache CPM packages
+        uses: actions/cache@v4
+        with:
+          path: .cpm_cache
+          key: cpm-${{ runner.os }}-${{ hashFiles('registry/packages/*.json') }}
+          restore-keys: |
+            cpm-${{ runner.os }}-
+      
+      - name: Build example project
+        run: |
+          cd examples/basic_project
+          cmake -B build -DCPM_SOURCE_CACHE=${{ github.workspace }}/.cpm_cache
+          cmake --build build --parallel
+      
+      - name: Run tests
+        run: |
+          cd examples/basic_project/build
+          ctest --output-on-failure
+
+  test-individual-packages:
+    name: Test ${{ matrix.package }}
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - fmt
+          - spdlog
+          - nlohmann_json
+          - catch2
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+      
+      - name: Create test project
+        run: |
+          mkdir -p test_${{ matrix.package }}
+          cd test_${{ matrix.package }}
+          
+          cat > CMakeLists.txt << 'EOF'
+          cmake_minimum_required(VERSION 3.14)
+          project(test_pkg)
+          set(CMAKE_CXX_STANDARD 17)
+          include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/CCR.cmake)
+          ccr_add_package(${{ matrix.package }})
+          # Just test that it configures and builds
+          add_executable(dummy dummy.cpp)
+          EOF
+          
+          cat > dummy.cpp << 'EOF'
+          int main() { return 0; }
+          EOF
+      
+      - name: Build
+        run: |
+          cd test_${{ matrix.package }}
+          cmake -B build
+          cmake --build build

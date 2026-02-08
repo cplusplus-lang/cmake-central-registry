@@ -1,0 +1,46 @@
+{
+  "name": "spdlog",
+  "description": "Fast C++ logging library",
+  "homepage": "https://github.com/gabime/spdlog",
+  "license": "MIT",
+  "repository": {
+    "type": "github",
+    "url": "https://github.com/gabime/spdlog"
+  },
+  "versions": {
+    "1.13.0": {
+      "git_tag": "v1.13.0",
+      "minimum_cmake_version": "3.14",
+      "tested": true,
+      "cmake_options": {
+        "SPDLOG_BUILD_EXAMPLE": "OFF",
+        "SPDLOG_BUILD_TESTS": "OFF"
+      }
+    },
+    "1.12.0": {
+      "git_tag": "v1.12.0",
+      "minimum_cmake_version": "3.11",
+      "tested": true,
+      "cmake_options": {
+        "SPDLOG_BUILD_EXAMPLE": "OFF",
+        "SPDLOG_BUILD_TESTS": "OFF"
+      }
+    },
+    "1.11.0": {
+      "git_tag": "v1.11.0",
+      "minimum_cmake_version": "3.10",
+      "tested": true,
+      "cmake_options": {
+        "SPDLOG_BUILD_EXAMPLE": "OFF",
+        "SPDLOG_BUILD_TESTS": "OFF"
+      }
+    }
+  },
+  "default_version": "1.13.0",
+  "targets": [
+    "spdlog::spdlog",
+    "spdlog::spdlog_header_only"
+  ],
+  "dependencies": [],
+  "maintainers": ["registry-team"]
+}
