@@ -20,6 +20,7 @@ set(CCR_REGISTRY_DIR "${CCR_SOURCE_DIR}/registry/packages")
 # Cache for loaded packages (prevent duplicates)
 set_property(GLOBAL PROPERTY CCR_LOADED_PACKAGES "")
 set_property(GLOBAL PROPERTY CCR_PACKAGE_VERSIONS "")
+set_property(GLOBAL PROPERTY CCR_LOCKFILE_LOADED FALSE)
 
 # ============================================================================
 # Include CPM.cmake (fetched automatically if not present)
@@ -258,7 +259,20 @@ function(ccr_add_package package_name)
   # Load package metadata
   _ccr_load_package_metadata("${package_name}" json_content)
   
-  # Determine version
+  # Determine version (priority: locked > explicit > default)
+  get_property(lockfile_loaded GLOBAL PROPERTY CCR_LOCKFILE_LOADED)
+  if(lockfile_loaded)
+    get_property(locked_version GLOBAL PROPERTY "CCR_LOCKED_VERSION_${package_name}")
+    if(locked_version)
+      if(ARG_VERSION AND NOT "${ARG_VERSION}" STREQUAL "${locked_version}")
+        message(STATUS "[CCR] Using locked version ${locked_version} for ${package_name} (requested: ${ARG_VERSION})")
+      else()
+        message(STATUS "[CCR] Using locked version ${locked_version} for ${package_name}")
+      endif()
+      set(ARG_VERSION "${locked_version}")
+    endif()
+  endif()
+  
   if(NOT ARG_VERSION)
     _ccr_get_default_version("${json_content}" ARG_VERSION)
     message(STATUS "[CCR] Using default version ${ARG_VERSION} for ${package_name}")
@@ -356,12 +370,73 @@ function(ccr_package_info package_name)
   message(STATUS "")
 endfunction()
 
-# Generate lockfile
+# Load lockfile to enforce specific versions
+#[[
+  ccr_load_lockfile(<lockfile_path>)
+  
+  Load a lockfile to enforce specific package versions.
+  Must be called BEFORE any ccr_add_package() calls.
+  
+  When a lockfile is loaded, ccr_add_package() will use the locked
+  version instead of the requested or default version.
+  
+  Example:
+    ccr_load_lockfile("${CMAKE_CURRENT_SOURCE_DIR}/ccr.lock")
+]]
+function(ccr_load_lockfile lockfile_path)
+  if(NOT EXISTS "${lockfile_path}")
+    message(STATUS "[CCR] No lockfile found at ${lockfile_path}")
+    return()
+  endif()
+  
+  message(STATUS "[CCR] Loading lockfile: ${lockfile_path}")
+  
+  file(STRINGS "${lockfile_path}" lines)
+  set(pkg_count 0)
+  
+  foreach(line IN LISTS lines)
+    # Skip comments and empty lines
+    string(STRIP "${line}" line)
+    if(line MATCHES "^#" OR line STREQUAL "")
+      continue()
+    endif()
+    
+    # Parse package=version format
+    if(line MATCHES "^([^=]+)=(.+)$")
+      set(pkg_name "${CMAKE_MATCH_1}")
+      set(pkg_version "${CMAKE_MATCH_2}")
+      set_property(GLOBAL PROPERTY "CCR_LOCKED_VERSION_${pkg_name}" "${pkg_version}")
+      math(EXPR pkg_count "${pkg_count} + 1")
+    endif()
+  endforeach()
+  
+  set_property(GLOBAL PROPERTY CCR_LOCKFILE_LOADED TRUE)
+  message(STATUS "[CCR] Loaded ${pkg_count} locked package versions")
+endfunction()
+
+# Generate lockfile from currently loaded packages
+#[[
+  ccr_generate_lockfile(<output_file>)
+  
+  Generate a lockfile recording all loaded package versions.
+  Call this AFTER all ccr_add_package() calls.
+  
+  The lockfile can later be loaded with ccr_load_lockfile()
+  to ensure reproducible builds.
+  
+  Example:
+    ccr_generate_lockfile("${CMAKE_CURRENT_SOURCE_DIR}/ccr.lock")
+]]
 function(ccr_generate_lockfile output_file)
   get_property(loaded_packages GLOBAL PROPERTY CCR_LOADED_PACKAGES)
   
-  set(lockfile_content "# CCR Lockfile - Generated ${CMAKE_CURRENT_TIMESTAMP}\n")
-  string(APPEND lockfile_content "# Do not edit manually\n\n")
+  string(TIMESTAMP current_time "%Y-%m-%d %H:%M:%S")
+  set(lockfile_content "# CCR Lockfile - Generated ${current_time}\n")
+  string(APPEND lockfile_content "# This file locks package versions for reproducible builds.\n")
+  string(APPEND lockfile_content "# CCR auto-loads this file from \${CMAKE_SOURCE_DIR}/ccr.lock\n\n")
+  
+  # Sort packages for consistent output
+  list(SORT loaded_packages)
   
   foreach(pkg IN LISTS loaded_packages)
     get_property(version GLOBAL PROPERTY "CCR_PKG_VERSION_${pkg}")
@@ -371,5 +446,19 @@ function(ccr_generate_lockfile output_file)
   file(WRITE "${output_file}" "${lockfile_content}")
   message(STATUS "[CCR] Lockfile written to ${output_file}")
 endfunction()
+
+# ============================================================================
+# Auto-load lockfile if present
+# ============================================================================
+
+# Allow user to specify custom lockfile path
+if(NOT DEFINED CCR_LOCKFILE)
+  set(CCR_LOCKFILE "${CMAKE_SOURCE_DIR}/ccr.lock")
+endif()
+
+# Auto-load lockfile if it exists
+if(EXISTS "${CCR_LOCKFILE}")
+  ccr_load_lockfile("${CCR_LOCKFILE}")
+endif()
 
 message(STATUS "[CCR] CMake Central Registry v${CCR_VERSION} loaded")

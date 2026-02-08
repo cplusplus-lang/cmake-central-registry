@@ -5,14 +5,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Include CCR from parent directory
-include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/CCR.cmake)
-
-# Add packages from registry
-# Note: spdlog depends on fmt, but since we add fmt first,
-# CCR will detect it's already loaded and skip the duplicate
-ccr_add_package(fmt VERSION 10.1.0)
-ccr_add_package(spdlog VERSION 1.12.0)
+# ============================================================================
+# Dependencies (managed in separate file for cleaner organization)
+# ============================================================================
+include(cmake/Dependencies.cmake)
+demo_setup_dependencies()
 
 # Show available packages (optional)
 ccr_list_packages()

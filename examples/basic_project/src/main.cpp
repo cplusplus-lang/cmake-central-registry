@@ -1,5 +1,5 @@
-#include <fmt/core.h>
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/fmt.h>
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
