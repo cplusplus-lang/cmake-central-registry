@@ -1,0 +1,9 @@
+{
+  "git_tag": "10.0.0",
+  "minimum_cmake_version": "3.14",
+  "tested": true,
+  "cmake_options": {
+    "FMT_DOC": "OFF",
+    "FMT_TEST": "OFF"
+  }
+}

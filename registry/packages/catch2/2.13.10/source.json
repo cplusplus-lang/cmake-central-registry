@@ -1,0 +1,10 @@
+{
+  "git_tag": "v2.13.10",
+  "minimum_cmake_version": "3.5",
+  "tested": true,
+  "cmake_options": {
+    "CATCH_BUILD_TESTING": "OFF",
+    "CATCH_INSTALL_DOCS": "OFF"
+  },
+  "notes": "Catch2 v2 - single header version"
+}

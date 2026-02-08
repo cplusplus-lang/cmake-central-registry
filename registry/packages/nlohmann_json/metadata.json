@@ -1,0 +1,16 @@
+{
+  "name": "nlohmann_json",
+  "description": "JSON for Modern C++",
+  "homepage": "https://json.nlohmann.me",
+  "license": "MIT",
+  "repository": {
+    "type": "github",
+    "url": "https://github.com/nlohmann/json"
+  },
+  "default_version": "3.11.3",
+  "targets": [
+    "nlohmann_json::nlohmann_json"
+  ],
+  "dependencies": [],
+  "maintainers": ["registry-team"]
+}

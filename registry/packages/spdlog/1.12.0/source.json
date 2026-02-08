@@ -1,0 +1,9 @@
+{
+  "git_tag": "v1.12.0",
+  "minimum_cmake_version": "3.11",
+  "tested": true,
+  "cmake_options": {
+    "SPDLOG_BUILD_EXAMPLE": "OFF",
+    "SPDLOG_BUILD_TESTS": "OFF"
+  }
+}

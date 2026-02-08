@@ -1,0 +1,9 @@
+{
+  "git_tag": "v3.11.2",
+  "minimum_cmake_version": "3.1",
+  "tested": true,
+  "cmake_options": {
+    "JSON_BuildTests": "OFF",
+    "JSON_Install": "OFF"
+  }
+}

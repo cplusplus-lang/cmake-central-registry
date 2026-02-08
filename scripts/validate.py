@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Validate CCR package JSON files.
+Validate CCR package registry using BCR-style folder structure.
 Usage: python validate.py [package_name]
        python validate.py --all
 """
@@ -14,8 +14,12 @@ import re
 
 REGISTRY_DIR = Path(__file__).parent.parent / "registry" / "packages"
 
-REQUIRED_FIELDS = ["name", "description", "homepage", "license", "repository", "versions", "default_version", "targets", "maintainers"]
-REQUIRED_VERSION_FIELDS = ["git_tag", "tested"]
+# Required fields for metadata.json
+REQUIRED_METADATA_FIELDS = ["name", "description", "homepage", "license", "repository", "default_version", "targets", "maintainers"]
+
+# Required fields for source.json
+REQUIRED_SOURCE_FIELDS = ["git_tag", "tested"]
+
 VALID_REPO_TYPES = ["github", "gitlab", "url"]
 NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -31,78 +35,125 @@ class ValidationError(Exception):
     pass
 
 
-def validate_package(pkg_path: Path) -> list[str]:
-    """Validate a single package file. Returns list of errors."""
+def validate_metadata(pkg_dir: Path, metadata: dict) -> list[str]:
+    """Validate metadata.json content."""
     errors = []
     
-    try:
-        with open(pkg_path) as f:
-            data = json.load(f)
-    except json.JSONDecodeError as e:
-        return [f"Invalid JSON: {e}"]
-    
     # Check required fields
-    for field in REQUIRED_FIELDS:
-        if field not in data:
-            errors.append(f"Missing required field: {field}")
+    for field in REQUIRED_METADATA_FIELDS:
+        if field not in metadata:
+            errors.append(f"metadata.json missing required field: {field}")
     
     if errors:
         return errors  # Can't continue without required fields
     
-    # Validate name
-    name = data["name"]
+    # Validate name matches directory
+    name = metadata["name"]
     if not NAME_PATTERN.match(name):
         errors.append(f"Invalid name '{name}': must be lowercase alphanumeric + underscore, starting with letter")
     
-    if pkg_path.stem != name:
-        errors.append(f"Filename '{pkg_path.stem}' doesn't match package name '{name}'")
+    if pkg_dir.name != name:
+        errors.append(f"Directory name '{pkg_dir.name}' doesn't match package name '{name}'")
     
     # Validate description
-    if len(data["description"]) > 200:
+    if len(metadata["description"]) > 200:
         errors.append("Description exceeds 200 characters")
     
     # Validate license
-    if data["license"] not in VALID_LICENSES:
-        errors.append(f"Unknown license '{data['license']}'. Use SPDX identifier.")
+    if metadata["license"] not in VALID_LICENSES:
+        errors.append(f"Unknown license '{metadata['license']}'. Use SPDX identifier.")
     
     # Validate repository
-    repo = data["repository"]
+    repo = metadata["repository"]
     if "type" not in repo or "url" not in repo:
         errors.append("Repository must have 'type' and 'url' fields")
     elif repo["type"] not in VALID_REPO_TYPES:
         errors.append(f"Invalid repository type: {repo['type']}")
     
-    # Validate versions
-    versions = data["versions"]
-    if not versions:
-        errors.append("At least one version is required")
-    
-    for ver, ver_info in versions.items():
-        for field in REQUIRED_VERSION_FIELDS:
-            if field not in ver_info:
-                errors.append(f"Version {ver} missing required field: {field}")
-        
-        if "cmake_options" in ver_info:
-            if not isinstance(ver_info["cmake_options"], dict):
-                errors.append(f"Version {ver}: cmake_options must be an object")
-    
-    # Validate default_version exists
-    if data["default_version"] not in versions:
-        errors.append(f"default_version '{data['default_version']}' not found in versions")
-    
     # Validate targets
-    if not data["targets"]:
+    if not metadata["targets"]:
         errors.append("At least one target must be specified")
     
     # Validate maintainers
-    if not data["maintainers"]:
+    if not metadata["maintainers"]:
         errors.append("At least one maintainer is required")
     
-    # Validate dependencies
-    if "dependencies" in data:
-        for dep in data["dependencies"]:
+    # Validate dependencies if present
+    if "dependencies" in metadata:
+        for dep in metadata["dependencies"]:
             if "name" not in dep:
                 errors.append("Dependency missing 'name' field")
+    
+    return errors
+
+
+def validate_source(version: str, source: dict) -> list[str]:
+    """Validate source.json content."""
+    errors = []
+    
+    for field in REQUIRED_SOURCE_FIELDS:
+        if field not in source:
+            errors.append(f"Version {version}: source.json missing required field: {field}")
+    
+    if "cmake_options" in source:
+        if not isinstance(source["cmake_options"], dict):
+            errors.append(f"Version {version}: cmake_options must be an object")
+    
+    return errors
+
+
+def get_version_dirs(pkg_dir: Path) -> list[Path]:
+    """Get all version directories in a package directory."""
+    return [d for d in pkg_dir.iterdir() if d.is_dir()]
+
+
+def validate_package(pkg_dir: Path) -> list[str]:
+    """Validate a single package directory. Returns list of errors."""
+    errors = []
+    
+    # Check metadata.json exists
+    metadata_path = pkg_dir / "metadata.json"
+    if not metadata_path.exists():
+        return [f"Missing metadata.json in {pkg_dir.name}"]
+    
+    try:
+        with open(metadata_path) as f:
+            metadata = json.load(f)
+    except json.JSONDecodeError as e:
+        return [f"Invalid JSON in metadata.json: {e}"]
+    
+    # Validate metadata
+    errors.extend(validate_metadata(pkg_dir, metadata))
+    
+    # Get version directories
+    version_dirs = get_version_dirs(pkg_dir)
+    if not version_dirs:
+        errors.append("At least one version directory is required")
+        return errors
+    
+    versions_found = []
+    for ver_dir in version_dirs:
+        version = ver_dir.name
+        versions_found.append(version)
+        
+        source_path = ver_dir / "source.json"
+        if not source_path.exists():
+            errors.append(f"Version {version}: missing source.json")
+            continue
+        
+        try:
+            with open(source_path) as f:
+                source = json.load(f)
+        except json.JSONDecodeError as e:
+            errors.append(f"Version {version}: invalid JSON in source.json: {e}")
+            continue
+        
+        errors.extend(validate_source(version, source))
+    
+    # Validate default_version exists
+    if "default_version" in metadata:
+        if metadata["default_version"] not in versions_found:
+            errors.append(f"default_version '{metadata['default_version']}' not found in version directories")
     
     return errors
 
@@ -111,10 +162,15 @@ def validate_all() -> dict[str, list[str]]:
     """Validate all packages. Returns dict of package name -> errors."""
     results = {}
     
-    for pkg_file in REGISTRY_DIR.glob("*.json"):
-        errors = validate_package(pkg_file)
-        if errors:
-            results[pkg_file.stem] = errors
+    if not REGISTRY_DIR.exists():
+        print(f"❌ Registry directory not found: {REGISTRY_DIR}")
+        sys.exit(1)
+    
+    for pkg_dir in REGISTRY_DIR.iterdir():
+        if pkg_dir.is_dir():
+            errors = validate_package(pkg_dir)
+            if errors:
+                results[pkg_dir.name] = errors
     
     return results
 
@@ -126,32 +182,39 @@ def main():
     
     if sys.argv[1] == "--all":
         results = validate_all()
+        
+        # Count packages
+        pkg_count = sum(1 for p in REGISTRY_DIR.iterdir() if p.is_dir())
+        
         if results:
             print("❌ Validation errors found:\n")
-            for pkg, errors in results.items():
+            for pkg, errors in sorted(results.items()):
                 print(f"  {pkg}:")
                 for error in errors:
                     print(f"    - {error}")
+            print(f"\n{pkg_count - len(results)}/{pkg_count} packages valid")
             sys.exit(1)
         else:
-            print("✅ All packages valid!")
+            print(f"✅ All {pkg_count} packages valid!")
             sys.exit(0)
     else:
         pkg_name = sys.argv[1]
-        pkg_path = REGISTRY_DIR / f"{pkg_name}.json"
+        pkg_dir = REGISTRY_DIR / pkg_name
         
-        if not pkg_path.exists():
+        if not pkg_dir.exists():
             print(f"❌ Package '{pkg_name}' not found")
             sys.exit(1)
         
-        errors = validate_package(pkg_path)
+        errors = validate_package(pkg_dir)
         if errors:
             print(f"❌ Validation errors for {pkg_name}:")
             for error in errors:
                 print(f"  - {error}")
             sys.exit(1)
         else:
-            print(f"✅ {pkg_name} is valid!")
+            # Count versions
+            version_count = len(get_version_dirs(pkg_dir))
+            print(f"✅ {pkg_name} is valid! ({version_count} versions)")
             sys.exit(0)
 
 

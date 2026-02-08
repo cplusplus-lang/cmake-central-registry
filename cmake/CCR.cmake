@@ -89,16 +89,30 @@ endfunction()
 # Registry Functions
 # ============================================================================
 
-# Load package metadata from registry
+# Load package metadata from registry (BCR-style folder structure)
 function(_ccr_load_package_metadata package_name out_var)
-  set(package_file "${CCR_REGISTRY_DIR}/${package_name}.json")
+  set(package_dir "${CCR_REGISTRY_DIR}/${package_name}")
+  set(metadata_file "${package_dir}/metadata.json")
   
-  if(NOT EXISTS "${package_file}")
+  if(NOT EXISTS "${metadata_file}")
     message(FATAL_ERROR "[CCR] Package '${package_name}' not found in registry. "
       "Available packages are in: ${CCR_REGISTRY_DIR}")
   endif()
   
-  file(READ "${package_file}" json_content)
+  file(READ "${metadata_file}" json_content)
+  set(${out_var} "${json_content}" PARENT_SCOPE)
+endfunction()
+
+# Load version-specific source info (BCR-style)
+function(_ccr_load_source_info package_name version out_var)
+  set(source_file "${CCR_REGISTRY_DIR}/${package_name}/${version}/source.json")
+  
+  if(NOT EXISTS "${source_file}")
+    message(FATAL_ERROR "[CCR] Version '${version}' of package '${package_name}' not found. "
+      "Expected: ${source_file}")
+  endif()
+  
+  file(READ "${source_file}" json_content)
   set(${out_var} "${json_content}" PARENT_SCOPE)
 endfunction()
 
@@ -119,19 +133,16 @@ function(_ccr_mark_package_loaded package_name version)
   set_property(GLOBAL PROPERTY "CCR_PKG_VERSION_${package_name}" "${version}")
 endfunction()
 
-# Get version info from package metadata
-function(_ccr_get_version_info json_content version out_git_tag out_cmake_options)
+# Get version info from source.json (BCR-style)
+function(_ccr_get_version_info package_name version out_git_tag out_cmake_options)
+  _ccr_load_source_info("${package_name}" "${version}" source_content)
+  
   if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.19")
-    string(JSON version_obj ERROR_VARIABLE err GET "${json_content}" "versions" "${version}")
-    if(err)
-      message(FATAL_ERROR "[CCR] Version '${version}' not found in package metadata")
-    endif()
-    
-    string(JSON git_tag GET "${version_obj}" "git_tag")
+    string(JSON git_tag GET "${source_content}" "git_tag")
     set(${out_git_tag} "${git_tag}" PARENT_SCOPE)
     
     # Extract cmake_options
-    string(JSON cmake_opts_obj ERROR_VARIABLE err GET "${version_obj}" "cmake_options")
+    string(JSON cmake_opts_obj ERROR_VARIABLE err GET "${source_content}" "cmake_options")
     if(NOT err)
       string(JSON num_keys LENGTH "${cmake_opts_obj}")
       set(options_list "")
@@ -149,12 +160,8 @@ function(_ccr_get_version_info json_content version out_git_tag out_cmake_option
     endif()
   else()
     # Simplified fallback - just extract git_tag
-    string(REGEX MATCH "\"${version}\"[^}]*\"git_tag\"[[:space:]]*:[[:space:]]*\"([^\"]+)\"" match "${json_content}")
-    if(CMAKE_MATCH_1)
-      set(${out_git_tag} "${CMAKE_MATCH_1}" PARENT_SCOPE)
-    else()
-      message(FATAL_ERROR "[CCR] Could not parse version '${version}'")
-    endif()
+    _ccr_json_get_string("${source_content}" "git_tag" git_tag)
+    set(${out_git_tag} "${git_tag}" PARENT_SCOPE)
     set(${out_cmake_options} "" PARENT_SCOPE)
   endif()
 endfunction()
@@ -260,8 +267,8 @@ function(ccr_add_package package_name)
   # Get repository URL
   _ccr_get_repository_url("${json_content}" repo_url)
   
-  # Get version-specific info
-  _ccr_get_version_info("${json_content}" "${ARG_VERSION}" git_tag cmake_options)
+  # Get version-specific info (from source.json)
+  _ccr_get_version_info("${package_name}" "${ARG_VERSION}" git_tag cmake_options)
   
   # Handle dependencies first (unless skipped)
   if(NOT ARG_SKIP_DEPENDENCIES)
@@ -309,18 +316,23 @@ endfunction()
 # Utility Functions
 # ============================================================================
 
-# List all available packages
+# List all available packages (BCR-style folder structure)
 function(ccr_list_packages)
-  file(GLOB package_files "${CCR_REGISTRY_DIR}/*.json")
+  file(GLOB package_dirs "${CCR_REGISTRY_DIR}/*")
   message(STATUS "[CCR] Available packages:")
-  foreach(pkg_file IN LISTS package_files)
-    get_filename_component(pkg_name "${pkg_file}" NAME_WE)
-    
-    file(READ "${pkg_file}" json_content)
-    _ccr_json_get_string("${json_content}" "description" description)
-    _ccr_get_default_version("${json_content}" default_ver)
-    
-    message(STATUS "  - ${pkg_name} (${default_ver}): ${description}")
+  foreach(pkg_dir IN LISTS package_dirs)
+    if(IS_DIRECTORY "${pkg_dir}")
+      get_filename_component(pkg_name "${pkg_dir}" NAME)
+      set(metadata_file "${pkg_dir}/metadata.json")
+      
+      if(EXISTS "${metadata_file}")
+        file(READ "${metadata_file}" json_content)
+        _ccr_json_get_string("${json_content}" "description" description)
+        _ccr_get_default_version("${json_content}" default_ver)
+        
+        message(STATUS "  - ${pkg_name} (${default_ver}): ${description}")
+      endif()
+    endif()
   endforeach()
 endfunction()
 

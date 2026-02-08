@@ -1,0 +1,17 @@
+{
+  "name": "fmt",
+  "description": "A modern formatting library for C++",
+  "homepage": "https://fmt.dev",
+  "license": "MIT",
+  "repository": {
+    "type": "github",
+    "url": "https://github.com/fmtlib/fmt"
+  },
+  "default_version": "10.2.1",
+  "targets": [
+    "fmt::fmt",
+    "fmt::fmt-header-only"
+  ],
+  "dependencies": [],
+  "maintainers": ["registry-team"]
+}

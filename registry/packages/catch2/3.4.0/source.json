@@ -1,0 +1,8 @@
+{
+  "git_tag": "v3.4.0",
+  "minimum_cmake_version": "3.14",
+  "tested": true,
+  "cmake_options": {
+    "CATCH_BUILD_TESTING": "OFF"
+  }
+}

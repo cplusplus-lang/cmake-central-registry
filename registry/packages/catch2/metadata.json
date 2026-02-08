@@ -1,0 +1,17 @@
+{
+  "name": "catch2",
+  "description": "A modern, C++-native, test framework for unit-tests",
+  "homepage": "https://github.com/catchorg/Catch2",
+  "license": "BSL-1.0",
+  "repository": {
+    "type": "github",
+    "url": "https://github.com/catchorg/Catch2"
+  },
+  "default_version": "3.5.2",
+  "targets": [
+    "Catch2::Catch2",
+    "Catch2::Catch2WithMain"
+  ],
+  "dependencies": [],
+  "maintainers": ["registry-team"]
+}

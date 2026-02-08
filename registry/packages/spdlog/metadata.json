@@ -1,0 +1,17 @@
+{
+  "name": "spdlog",
+  "description": "Fast C++ logging library",
+  "homepage": "https://github.com/gabime/spdlog",
+  "license": "MIT",
+  "repository": {
+    "type": "github",
+    "url": "https://github.com/gabime/spdlog"
+  },
+  "default_version": "1.13.0",
+  "targets": [
+    "spdlog::spdlog",
+    "spdlog::spdlog_header_only"
+  ],
+  "dependencies": [],
+  "maintainers": ["registry-team"]
+}
