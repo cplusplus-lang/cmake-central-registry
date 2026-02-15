@@ -50,7 +50,7 @@ jobs:
       - name: Build example project
         run: |
           cd examples/basic_project
-          cmake -B build -DCPM_SOURCE_CACHE=${{ github.workspace }}/.cpm_cache
+          cmake -B build -G Ninja -DCPM_SOURCE_CACHE=${{ github.workspace }}/.cpm_cache
           cmake --build build --parallel
       
       - name: Run tests
@@ -99,5 +99,5 @@ jobs:
       - name: Build
         run: |
           cd test_${{ matrix.package }}
-          cmake -B build
+          cmake -B build -G Ninja
           cmake --build build
